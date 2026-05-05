@@ -147,7 +147,32 @@ git push
 ```
 **Never** `git push --force`. If the rebase lands you in a state you don't trust, stop and ask before doing anything else.
 
-### 8. Switching between Kye's machines mid-feature
+### 8. Old GutCheck repo lives at `Archive_GutCheck`
+
+The legacy v11-era repo (NourishLog → GutCheck rename history, before the fresh-history reset in session 2) was renamed to `KyeAnderson575/Archive_GutCheck` and made private. It exists as a permanent backup. **Do not push to it. Do not delete it.** If you ever need to recover something from before the session 2 fresh start, that's where to look.
+
+### 9. First push rejected with `GH007: Your push would publish a private email address`
+
+**Symptom:** `git push` is rejected with:
+```
+remote: error: GH007: Your push would publish a private email address.
+remote: You can make your email public or disable this protection by visiting:
+remote: https://github.com/settings/emails
+```
+
+**Cause:** Your commit was authored with a real email address (e.g. `kye@co-innovate.com`) that you've marked private on GitHub. GitHub blocks the push so the email doesn't end up in public commit history.
+
+**Fix (privacy-preserving — recommended):**
+1. Find your GitHub no-reply email at `https://github.com/settings/emails`. It looks like `<numeric-id>+<username>@users.noreply.github.com`.
+2. Update the local repo's identity: `git config user.email "<numeric-id>+<username>@users.noreply.github.com"`.
+3. Amend the existing commit's author to use the new email: `git commit --amend --reset-author --no-edit`.
+4. Push again.
+
+This only needs to happen once on a fresh repo. After the first commit lands with the no-reply email, future commits inherit the right identity from `git config`.
+
+**Already-known no-reply for this account:** `270755902+KyeAnderson575@users.noreply.github.com`.
+
+### 10. Switching between Kye's machines mid-feature
 
 If you have uncommitted work on machine A and need to move to machine B, easiest path is to commit the WIP and push:
 

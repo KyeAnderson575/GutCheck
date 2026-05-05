@@ -1,3 +1,76 @@
+# GutCheck — History (append-only session log)
+
+This file is append-only. Newest session at the top. Older session blocks are reference only and never edited after the fact.
+
+---
+
+## Session 2 results (2026-05-05)
+
+**Session scope:** Adopt the 3-file docs convention (START_PROMPT/CLAUDE/SESSIONS), `git init` with cross-machine line-ending normalization, GitHub repo migration (rename old to archive + create fresh), `npm audit` cleanup, GitHub Pages deploy workflow, live-URL smoke test on iPhone.
+
+### What was done
+
+- **Docs reorg.** Renamed `HANDOFF.md` → `HISTORY.md` (this file). Created `START_PROMPT.md` (paste-ready session-start prompt + "Current state" snapshot, rewritten wholesale each session) and `SESSIONS.md` (multi-device git workflow + 9 common gotchas with concrete fixes). Deleted `CLAUDE-CODE-FIRST-SESSION-PROMPT.md` (its role is now `START_PROMPT.md`). Added a "Docs files" table to `CLAUDE.md` documenting the convention. Pattern adopted from the Scatter-Settle project.
+- **`.gitignore` audit.** Appended `.env.*.local`, `dev-dist/`, `gutcheck-export-*.json`, `nl-export-*.json`, `serviceAccount*.json`, `firebase-debug.log`, `.firebase/`, `.firebaserc.local`. Defensive — none of those files exist yet, but the patterns prevent accidental commit of medical-data exports or future Firebase secrets.
+- **`.gitattributes`.** Added before first commit to lock line endings (`* text=auto eol=lf`) and mark common binary types. Avoids cross-machine LF/CRLF churn between Kye's home dev box and secondary device.
+- **`npm audit fix`.** Resolved 8 vulns (5 high, 1 critical). All were build/dev-dependency transitives — none shipped to users. `npm audit fix` (no `--force`) did patch/minor bumps: `vite` 6.4.1 → 6.4.2, `postcss` 8.5.8 → 8.5.14, `protobufjs` 7.5.4 → 7.5.6 (the critical), `serialize-javascript` 6.0.2 → 7.0.5, plus workbox internals 7.4.0 → 7.4.1 and `@rollup/plugin-terser` 0.4.4 → 1.0.0 (workbox-internal major). End state: 0 vulnerabilities. `npm run build` clean post-fix.
+- **`git init`.** Local repo initialized on `main`. Identity set to the GitHub no-reply email (`270755902+KyeAnderson575@users.noreply.github.com`), not Kye's work email — see "Bugs found and fixed" below.
+- **First commit (`78b427d`).** 32 files, 16,469 insertions. Covers all session 1 work (NourishLog → GutCheck rename, schema v4, correlation engine V2, SymForm progressive disclosure, advanced pin management, light/dark theming, PWA setup, the two session 1 bug fixes, the index.html meta tag fix) plus session 2 prep (docs reorg, `.gitattributes`, `.gitignore` additions, `npm audit fix`).
+- **GitHub repo migration.** Kye renamed old `KyeAnderson575/GutCheck` → `KyeAnderson575/Archive_GutCheck` (private, preserved as backup; legacy v11 era). Created fresh public `KyeAnderson575/GutCheck`, no init files. Description: "Personal GI health tracker — PWA, beta."
+- **First push.** After amending the commit author email (see "Bugs found and fixed"), pushed `78b427d` to `origin/main`. Public repo at `https://github.com/KyeAnderson575/GutCheck`.
+- **GitHub Pages deploy workflow.** Added `.github/workflows/deploy.yml` using GitHub's official Pages-from-Actions pattern (no third-party actions). Node 20, `npm ci`, `vite build`, `actions/upload-pages-artifact@v3`, `actions/deploy-pages@v4`. Concurrency group `pages` to prevent overlapping deploys. Triggers on push to main + manual `workflow_dispatch`. Pages "Source" toggled to "GitHub Actions" in repo settings (one-time browser action by Kye).
+- **Second commit + push (`7592fd0`).** Workflow file. Triggered the first deploy run, which went green end-to-end on first try.
+- **Live URL verified.** `https://kyeanderson575.github.io/GutCheck/` returns HTTP 200, serves the correct `index.html` with both `mobile-web-app-capable` meta tags + the manifest at the right `/GutCheck/` scope.
+
+### Smoke test results (live URL on iPhone Safari) — all 12 PASS
+
+1. Cold load in dark mode, no white screen, layout intact.
+2. All 5 bottom-nav tabs render without crashing.
+3. No visible UI breakage; Insights tab shows empty-state correctly.
+4. Tab switching is smooth.
+5. **Bottom-sheet clearance fix verified live:** long-press a Quick Log pin → edit sheet opens, "Save Changes" + "Remove" both fully tappable above the fixed bottom nav. Session 1 padding fix shipped correctly.
+6. **FAB hide-during-overlay fix verified live:** orange `+` FAB invisible while edit sheet is open; reappears on close. Session 1 stacking fix shipped correctly.
+7. Symptom save round-trip works: log Diarrhea via FAB → appears in list with toast.
+8. IndexedDB persists across reload under the `/GutCheck/` scope.
+9. Meal save round-trip works.
+10. Light mode toggle: status colors legible, no invisible elements.
+11. PWA install via "Add to Home Screen" works; standalone launch shows correct theme color (dark purple).
+12. Long-press timing (~500ms) feels right on real iOS hardware. Not too fast (no accidental edits) or slow (not annoying).
+
+### Bugs found and fixed in-session
+
+1. **First push rejected by GitHub email-privacy guard (GH007).** First commit was authored with `kye@co-innovate.com`, which Kye had marked private on GitHub. The rejection happened before the push transmitted any data — the local commit was unaffected. **Fix:** switched `git config user.email` to the GitHub no-reply (`270755902+KyeAnderson575@users.noreply.github.com`), ran `git commit --amend --reset-author --no-edit` to retroactively update the existing local commit's author, then pushed again. Future commits use the no-reply by default. Documented as gotcha 9 in `SESSIONS.md`.
+
+### Bugs noted but not yet fixed
+
+- **1.4 MB single-chunk JS bundle.** Vite warns at build time. Pre-existing — same single-file App.jsx has been the architecture since the rename. Code-splitting is a post-beta optimization; not blocking testers.
+- **No feedback-collection mechanism** for beta testers. Currently relies on word-of-mouth. Could add a "Report Issue" link in More tab pointing to email or GitHub Issue template. Deferred.
+
+### Documentation updates (small)
+
+- `SESSIONS.md` updated mid-session to reflect the actual archive repo name (`Archive_GutCheck`, not `GutCheck-archive` as originally planned — Kye picked the underscore form during the rename).
+- `SESSIONS.md` added gotcha 9 covering the GitHub email-privacy push rejection so any future session that does a fresh push knows to start with the no-reply email or has a quick recovery path.
+
+### State as of end of session 2
+
+- Live URL working: `https://kyeanderson575.github.io/GutCheck/`.
+- Two commits on `main`, both pushed: `78b427d` (initial) + `7592fd0` (deploy workflow). A third small commit landing the session 2 wrap-up docs is the final action of this session.
+- Working tree clean (after the wrap-up commit lands).
+- 0 npm vulns. Build clean.
+- Firebase still stubbed and untouched.
+- iPhone PWA install confirmed working.
+
+### Queued for session 3
+
+- Firebase project setup (real config via env vars, not hardcoded).
+- Auth UI: sign in / sign up / sign out.
+- Firestore sync layer with `/users/{uid}/...` schema.
+- Migration of existing local IndexedDB data into the per-user cloud schema (or document a clean-slate path for new beta testers).
+- Conflict resolution strategy for offline-first → cloud-sync.
+- Onboarding flow for non-Kye testers (specced in `BACKLOG.md` §2).
+
+---
+
 # GutCheck — Handoff v12 (Session 1 in Claude Code)
 **Date:** May 5, 2026
 **Session scope:** First Claude Code session — scaffold project at `C:\Claude Projects\GutCheck`, verify untested build runs, walk smoke tests, light-mode sweep.

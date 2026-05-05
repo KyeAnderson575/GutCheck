@@ -43,55 +43,52 @@ Don't start executing until I approve the plan.
 
 ---
 
-## § Current state (as of 2026-05-05, end of session 1)
-
-**Note:** Session 2 is currently in progress. This block reflects state at the end of session 1 and will be rewritten when session 2 wraps. See `HISTORY.md` for the most recent completed session.
+## § Current state (as of 2026-05-05, end of session 2)
 
 ### Deployment
 
-- **No live URL yet.** GitHub Pages deploy is queued for session 2.
-- Local dev: `npm run dev` serves at `http://localhost:5173/GutCheck/`. Confirmed working in dark + light modes.
-- Build target: `https://kyeanderson575.github.io/GutCheck/` (will exist after session 2's deploy).
+- **Live URL: `https://kyeanderson575.github.io/GutCheck/`** — confirmed working on iPhone Safari and as a home-screen PWA.
+- Deploy pipeline: `.github/workflows/deploy.yml` runs on every push to `main` (Node 20, `npm ci`, `vite build`, `actions/deploy-pages@v4`). Pages source is set to "GitHub Actions" in repo settings.
+- First green deploy: workflow run from commit `7592fd0` (session 2). Build time ~1–2 min end to end.
 
 ### Git state
 
-- **Not yet a git repo.** `git init` is queued for session 2's first action after docs reorg.
-- Old repo `KyeAnderson575/GutCheck` (legacy v11 era) needs to be renamed to `GutCheck-archive` and a fresh empty `GutCheck` created. Both are browser actions Kye performs; Claude does not touch github.com without confirmation.
+- Repo: `https://github.com/KyeAnderson575/GutCheck` (public). Branch: `main`. Remote: `origin`.
+- Two commits in history at end of session 2:
+  1. `78b427d` — Initial commit: GutCheck beta build (32 files, 16,469 insertions).
+  2. `7592fd0` — Add GitHub Pages deploy workflow.
+- Old repo preserved as `KyeAnderson575/Archive_GutCheck` (private). Do not push to it; do not delete it. It holds the legacy v11 history.
+- Local identity is the GitHub no-reply email (`270755902+KyeAnderson575@users.noreply.github.com`), not `kye@co-innovate.com`. This was set after GitHub's privacy guard rejected a push exposing the work email — see SESSIONS.md gotcha 9. Future commits stay anonymized.
 
 ### Working-tree state
 
-- All session 1 work is uncommitted (no git history exists yet).
-- Two real bug fixes from session 1, both in the working tree, **must** ship in the first commit:
-  1. **FAB stacking-context guard** at `src/App.jsx` ~line 523: added `!showMF && !showSF` condition so the orange `+` FAB hides while modals/sheets are open. Plus CSS rule `body:has(.ql-sheet) .fab { display: none; }` in `src/styles/app.css` for the QuickLogSheet/AddQuickSymSheet cases not tracked at App scope.
-  2. **`.ql-sheet` bottom padding** in `src/styles/app.css`: bumped from `28px` to `100px` so Save Changes / Remove buttons clear the ~80px-tall fixed bottom nav.
-- `index.html` carries both the legacy `apple-mobile-web-app-capable` and modern `mobile-web-app-capable` meta tags (deprecation warning fix).
+- Clean at end of session. All session 2 work is committed and pushed.
+- All session 1 fixes verified live in the deployed bundle:
+  - FAB hides during overlays (Health tab edit sheet → no orange `+` visible) ✓
+  - `.ql-sheet` bottom padding: Save Changes / Remove buttons fully tappable above the bottom nav ✓
+  - `index.html` carries both legacy + modern `mobile-web-app-capable` meta tags ✓
 
 ### Build
 
-- `npm install` clean (486 packages). `npm audit` reports 8 vulns (5 high, 1 critical) — **review pending in session 2** before any push.
+- `npm audit`: **0 vulnerabilities** as of end of session 2. Resolved in session 2 via `npm audit fix` (no `--force`): patch/minor bumps to vite, postcss, protobufjs, serialize-javascript transitives. Workbox internals upgraded 7.4.0 → 7.4.1, plugin-terser 0.4.4 → 1.0.0 (workbox-internal major bump, no impact on our code).
+- Build: `npm run build` succeeds. Single 1.4 MB JS chunk warning is pre-existing — code-splitting is post-beta.
 - `vite.config.js` `base: '/GutCheck/'` ✓.
-- PWA scaffolding via `vite-plugin-pwa` works locally; service-worker behavior on the deployed `/GutCheck/` scope still untested.
+- PWA: service worker generates at `dist/sw.js`. Verified on live URL — manifest path resolves correctly under `/GutCheck/` scope, install-to-home-screen works on iOS.
 
 ### Firebase
 
 - Untouched. Stubbed out behind `isFirebaseReady()` guard. No real config, no service-account JSON anywhere in the tree.
 - All Firebase work deferred to **session 3**. See `BACKLOG.md` §4 and `CLAUDE.md` §"Multi-user note".
 
-### Untested as of session 1 smoke pass
+### Smoke test results (live URL on iPhone)
 
-- Stage 5 correlation engine V2 (lift values, EoE 72hr, stacking): smoke-tested empty-state path only, real-data path needs eyes on once enough symptoms are logged.
-- Iphone-specific touch behaviors: long-press timing on real iOS hardware not yet verified. Flagged in `TESTING.md`.
-- Light-mode visual sweep on actual iPhone: queued for session 2 as part of live-URL smoke test.
-
-### Queued for session 2
-
-- Docs reorg → adopt `START_PROMPT.md` + `SESSIONS.md` + `HISTORY.md` (formerly HANDOFF.md) convention. **In progress.**
-- `.gitignore` audit + additions for user-data exports, Firebase secrets, `dev-dist/`.
-- `npm audit` review.
-- `git init` + first commit.
-- GitHub repo migration (rename old → archive, create fresh).
-- `.github/workflows/deploy.yml` for Pages deploy.
-- Live-URL smoke test on iPhone.
+All 12 items from session 2's iPhone smoke test passed cleanly:
+- Cold load, all 5 bottom-nav tabs render, Insights empty state.
+- Bottom-sheet clearance + FAB hide-during-overlay verified live.
+- Symptom + meal save round-trip, IndexedDB persistence across reload.
+- Light/dark theme toggle.
+- PWA install + standalone launch.
+- Long-press timing (~500ms) feels right on iOS.
 
 ### Queued for session 3
 
@@ -100,9 +97,10 @@ Don't start executing until I approve the plan.
 - Firestore sync layer with `/users/{uid}/...` schema.
 - Migration of existing local IndexedDB data into the per-user cloud schema.
 - Conflict resolution for offline-first → cloud-sync edge cases.
+- Onboarding flow for non-Kye testers (specced in `BACKLOG.md` §2).
 
-### Open questions / decisions deferred
+### Open items / nice-to-have (non-blocking)
 
-- Repo description text on GitHub: optional, Kye picks at create time.
-- Whether the npm audit critical vuln warrants a breaking-change upgrade or can wait — depends on what the audit actually flags.
-- Whether `.gitattributes` is needed for line-ending consistency between Kye's home machine and secondary device — TBD if any line-ending churn appears in early diffs.
+- 1.4 MB single-chunk JS bundle: should be code-split eventually for faster initial load, but not blocking beta.
+- Bundle size warning is the only noise from `npm run build`; everything else is clean.
+- No feedback-collection mechanism on the live URL yet — beta testers reporting issues is currently word-of-mouth. Could add a simple "Report" link in More tab pointing to email or a GitHub Issue template — flag for session 3 or later.
