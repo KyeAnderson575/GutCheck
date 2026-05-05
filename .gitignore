@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# PWA dev build artifacts
+dev-dist/
+
+# User data exports (medical data — never commit)
+gutcheck-export-*.json
+nl-export-*.json
+
+# Firebase secrets (defensive — none currently present)
+serviceAccount*.json
+firebase-debug.log
+.firebase/
+.firebaserc.local
