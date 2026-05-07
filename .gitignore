@@ -32,3 +32,6 @@ serviceAccount*.json
 firebase-debug.log
 .firebase/
 .firebaserc.local
+
+# Claude Code session metadata
+.claude/

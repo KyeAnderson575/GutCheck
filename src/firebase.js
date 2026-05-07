@@ -2,28 +2,23 @@
  * firebase.js — Firebase Authentication & Firestore Sync for GutCheck
  *
  * Provides:
- *   - Google sign-in / email-password auth
- *   - Firestore sync (upload/download user data)
+ *   - Email + password auth (sign in / sign up / sign out)
+ *   - Firestore single-doc sync (legacy — Slice 2 will replace with /users/{uid}/{collection}/...)
  *   - Auth state listener
  *
- * Setup required:
- *   1. Create a Firebase project at https://console.firebase.google.com
- *   2. Enable Authentication → Google & Email/Password
- *   3. Create a Firestore database
- *   4. Replace the firebaseConfig below with your project's config
- *   5. npm install firebase
+ * Config comes from Vite env vars (VITE_FIREBASE_*). See .env.example for the
+ * required keys. .env.local holds the real values for local dev; CI injects
+ * the same vars from GitHub Actions secrets at build time.
  *
- * The app works fully offline without Firebase. Auth is optional —
- * signing in enables cloud sync between devices.
+ * The app works fully offline without Firebase. If env vars are missing,
+ * isFirebaseReady() returns false and all auth/sync surfaces stay hidden.
  */
 
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
-  signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -35,20 +30,16 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 
-// ═══ FIREBASE CONFIG ═══
-// REPLACE THIS with your Firebase project config from:
-// Firebase Console → Project Settings → Your apps → Config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Check if Firebase is configured (not placeholder values)
-const isConfigured = !firebaseConfig.apiKey.startsWith('YOUR_');
+const isConfigured = !!firebaseConfig.apiKey && !!firebaseConfig.projectId;
 
 let app, auth, db;
 
@@ -60,32 +51,21 @@ if (isConfigured) {
 
 // ═══ AUTH FUNCTIONS ═══
 
-/** Sign in with Google popup */
-export const signInWithGoogle = async () => {
-  if (!isConfigured) throw new Error('Firebase not configured');
-  const provider = new GoogleAuthProvider();
-  return signInWithPopup(auth, provider);
-};
-
-/** Sign in with email + password */
 export const signInEmail = async (email, password) => {
   if (!isConfigured) throw new Error('Firebase not configured');
   return signInWithEmailAndPassword(auth, email, password);
 };
 
-/** Create account with email + password */
 export const signUpEmail = async (email, password) => {
   if (!isConfigured) throw new Error('Firebase not configured');
   return createUserWithEmailAndPassword(auth, email, password);
 };
 
-/** Sign out */
 export const logOut = async () => {
   if (!isConfigured) return;
   return signOut(auth);
 };
 
-/** Listen for auth state changes */
 export const onAuthChange = (callback) => {
   if (!isConfigured) {
     callback(null);
@@ -94,25 +74,17 @@ export const onAuthChange = (callback) => {
   return onAuthStateChanged(auth, callback);
 };
 
-/** Get current user */
 export const getCurrentUser = () => {
   if (!isConfigured) return null;
   return auth?.currentUser || null;
 };
 
-// ═══ FIRESTORE SYNC ═══
+// ═══ FIRESTORE SYNC (legacy single-doc — Slice 2 will replace) ═══
 
-/**
- * Upload all user data to Firestore.
- * Stored as a single document per user for simplicity.
- * Photos (base64) are excluded to stay under Firestore's 1MB doc limit.
- */
 export const syncUpload = async (data) => {
   if (!isConfigured || !auth?.currentUser) return false;
   try {
     const uid = auth.currentUser.uid;
-
-    // Strip photos to stay under Firestore doc size limit
     const cleanData = {
       ...data,
       meals: (data.meals || []).map(m => ({ ...m, photo: undefined })),
@@ -120,7 +92,6 @@ export const syncUpload = async (data) => {
       _syncedAt: serverTimestamp(),
       _syncVersion: 'gc-sync-v1',
     };
-
     await setDoc(doc(db, 'users', uid), cleanData, { merge: false });
     return true;
   } catch (e) {
@@ -129,10 +100,6 @@ export const syncUpload = async (data) => {
   }
 };
 
-/**
- * Download user data from Firestore.
- * Returns null if no data exists.
- */
 export const syncDownload = async () => {
   if (!isConfigured || !auth?.currentUser) return null;
   try {
@@ -140,7 +107,6 @@ export const syncDownload = async () => {
     const snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists()) {
       const data = snap.data();
-      // Remove Firestore metadata fields
       delete data._syncedAt;
       delete data._syncVersion;
       return data;
@@ -152,7 +118,6 @@ export const syncDownload = async () => {
   }
 };
 
-/** Check if Firebase is configured and ready */
 export const isFirebaseReady = () => isConfigured;
 
 export { auth, db };

@@ -24,7 +24,7 @@ import { searchAllFoods } from './utils/searchDB';
 import SafeBdg from './components/SafeBdg';
 import BarcodeScanner from './components/BarcodeScanner';
 import {
-  isFirebaseReady, onAuthChange, signInWithGoogle,
+  isFirebaseReady, onAuthChange,
   signInEmail, signUpEmail, logOut, syncUpload, syncDownload,
 } from './firebase';
 import './styles/app.css';
@@ -517,7 +517,7 @@ export default function App() {
       {tab==="health"&&<HealthTab syms={syms} onEditSym={s=>{setEditS(s);setShowSF(true)}} onDelSym={delSym} onQuickSave={s=>{setSyms(p=>[{...s,id:Date.now()},...p]);setToast(s._toastMsg||'Symptom logged');setTimeout(()=>setToast(null),2500)}} pin={pin} setPin={setPin} meals={meals} customSymptoms={customSymptoms} selD={selD} medLog={medLog} setMedLog={setMedLog} meds={meds} pinnedQuickSyms={pinnedQuickSyms} setPinnedQuickSyms={setPinnedQuickSyms} />}
       {tab==="insights"&&<InsightsTab corr={corr} meals={meals} syms={syms} getDC={getDC} phase={phase} elimFoods={elimFoods} setElimFoods={setElimFoods} elimStart={elimStart} setElimStart={setElimStart} reintroFood={reintroFood} setReintroFood={setReintroFood} reintroStart={reintroStart} setReintroStart={setReintroStart} genApptPrep={genApptPrep} water={water} medLog={medLog} activeMeds={meds} cY={cY} setCY={setCY} cM={cM} setCM={setCM} selD={selD} setSelD={setSelD} mbd={mbd} dn={dn} setDn={setDn} />}
       {tab==="drinks"&&<DrinkTab myFoods={myFoods} setMyFoods={setMyFoods} meals={meals} setMeals={setMeals} water={water} setWater={setWater} onLogDrink={(d,size)=>{saveM({desc:`${d.desc||d.name}${size?' ('+size+')':''}`,mt:"Drink",time:nt(),date:td(),tags:[],al:d.al||[],notes:"",photo:null,ings:[],inst:"",src:"other",portion:size||"",completion:"",ts:Date.now()})}} hydrationGoal={hydrationGoal} setHydrationGoal={setHydrationGoal} showFoodForm={showFoodForm} setShowFoodForm={setShowFoodForm} editFood={editFood} setEditFood={setEditFood} foodFormType={foodFormType} setFoodFormType={setFoodFormType} />}
-      {tab==="more"&&<MoreTab mt2={moreTab} setMt2={setMoreTab} aiOn={aiOn} setAiOn={setAiOn} meals={meals} syms={syms} pin={pin} setPin={setPin} procs={procs} setProcs={setProcs} meds2={meds} setMeds2={setMeds} dxs={dxs} setDxs={setDxs} labs={labs} setLabs={setLabs} medUnlocked={medUnlocked} setMedUnlocked={setMedUnlocked} customSymptoms={customSymptoms} setCustomSymptoms={setCustomSymptoms} doReset={doReset} getAllData={getAllData} loadAllData={loadAllData} weightLog={weightLog} setWeightLog={setWeightLog} myFoods={myFoods} setMyFoods={setMyFoods} customFoods={customFoods} onUseFood={f=>{setPf({desc:`${f.name}${f.desc?' — '+f.desc:''}`,al:f.al||[],tags:f.tg||[],ings:f.ings||[],inst:f.instructions||'',mt:f.mt||'Lunch'});setEditM(null);setShowMF(true)}} showFoodForm={showFoodForm} setShowFoodForm={setShowFoodForm} editFood={editFood} setEditFood={setEditFood} foodFormType={foodFormType} setFoodFormType={setFoodFormType} restaurants={restaurants} setRestaurants={setRestaurants} pf={pf} setPf={setPf} aiOn2={aiOn} theme={theme} setTheme={setTheme} fbUser={fbUser} syncMsg={syncMsg} setSyncMsg={setSyncMsg} />}
+      {tab==="more"&&<MoreTab mt2={moreTab} setMt2={setMoreTab} aiOn={aiOn} setAiOn={setAiOn} meals={meals} syms={syms} pin={pin} setPin={setPin} procs={procs} setProcs={setProcs} meds2={meds} setMeds2={setMeds} dxs={dxs} setDxs={setDxs} labs={labs} setLabs={setLabs} medUnlocked={medUnlocked} setMedUnlocked={setMedUnlocked} customSymptoms={customSymptoms} setCustomSymptoms={setCustomSymptoms} doReset={doReset} getAllData={getAllData} loadAllData={loadAllData} weightLog={weightLog} setWeightLog={setWeightLog} myFoods={myFoods} setMyFoods={setMyFoods} customFoods={customFoods} onUseFood={f=>{setPf({desc:`${f.name}${f.desc?' — '+f.desc:''}`,al:f.al||[],tags:f.tg||[],ings:f.ings||[],inst:f.instructions||'',mt:f.mt||'Lunch'});setEditM(null);setShowMF(true)}} showFoodForm={showFoodForm} setShowFoodForm={setShowFoodForm} editFood={editFood} setEditFood={setEditFood} foodFormType={foodFormType} setFoodFormType={setFoodFormType} restaurants={restaurants} setRestaurants={setRestaurants} pf={pf} setPf={setPf} aiOn2={aiOn} theme={theme} setTheme={setTheme} fbUser={fbUser} syncMsg={syncMsg} setSyncMsg={setSyncMsg} onShowAuth={()=>setShowAuth(true)} />}
     </div>
 
     {(tab==="meals"||tab==="health")&&!showMF&&!showSF&&<button className="fab" onClick={()=>{if(tab==="meals"){setEditM(null);setPf(null);setShowMF(true)}else{setEditS(null);setShowSF(true)}}}>+</button>}
@@ -2147,7 +2147,7 @@ function AddFoodForm({onClose,onSave,edit,initType,prefill,aiOn,restaurants}){
 }
 
 /* ═══ MORE TAB ═══ */
-function MoreTab({mt2,setMt2,aiOn,setAiOn,meals,syms,pin,setPin,procs,setProcs,meds2,setMeds2,dxs,setDxs,labs,setLabs,medUnlocked,setMedUnlocked,customSymptoms,setCustomSymptoms,doReset,getAllData,loadAllData,weightLog,setWeightLog,myFoods,setMyFoods,customFoods,onUseFood,showFoodForm,setShowFoodForm,editFood,setEditFood,foodFormType,setFoodFormType,restaurants,setRestaurants,pf,setPf,aiOn2,theme,setTheme,fbUser,syncMsg,setSyncMsg}){
+function MoreTab({mt2,setMt2,aiOn,setAiOn,meals,syms,pin,setPin,procs,setProcs,meds2,setMeds2,dxs,setDxs,labs,setLabs,medUnlocked,setMedUnlocked,customSymptoms,setCustomSymptoms,doReset,getAllData,loadAllData,weightLog,setWeightLog,myFoods,setMyFoods,customFoods,onUseFood,showFoodForm,setShowFoodForm,editFood,setEditFood,foodFormType,setFoodFormType,restaurants,setRestaurants,pf,setPf,aiOn2,theme,setTheme,fbUser,syncMsg,setSyncMsg,onShowAuth}){
   const tabs=[["foods","📦"],["weight","⚖️"],["medical","🏥"],["settings","⚙️"]];
   return (
   <>
@@ -2155,7 +2155,7 @@ function MoreTab({mt2,setMt2,aiOn,setAiOn,meals,syms,pin,setPin,procs,setProcs,m
     {mt2==="foods"&&<FavsTab myFoods={myFoods} setMyFoods={setMyFoods} onUseFood={onUseFood} showFoodForm={showFoodForm} setShowFoodForm={setShowFoodForm} editFood={editFood} setEditFood={setEditFood} foodFormType={foodFormType} setFoodFormType={setFoodFormType} aiOn={aiOn2} restaurants={restaurants} setRestaurants={setRestaurants} pf={pf} setPf={setPf} customFoods={customFoods}/>}
     {mt2==="weight"&&<WeightSub weightLog={weightLog} setWeightLog={setWeightLog}/>}
     {mt2==="medical"&&<MedicalWithPhotos pin={pin} setPin={setPin} procs={procs} setProcs={setProcs} meds2={meds2} setMeds2={setMeds2} dxs={dxs} setDxs={setDxs} labs={labs} setLabs={setLabs} unlocked={medUnlocked} setUnlocked={setMedUnlocked} syms={syms}/>}
-    {mt2==="settings"&&<SettingsSub aiOn={aiOn} setAiOn={setAiOn} meals={meals} syms={syms} pin={pin} setPin={setPin} customSymptoms={customSymptoms} setCustomSymptoms={setCustomSymptoms} doReset={doReset} getAllData={getAllData} loadAllData={loadAllData} theme={theme} setTheme={setTheme} fbUser={fbUser} syncMsg={syncMsg} setSyncMsg={setSyncMsg} />}
+    {mt2==="settings"&&<SettingsSub aiOn={aiOn} setAiOn={setAiOn} meals={meals} syms={syms} pin={pin} setPin={setPin} customSymptoms={customSymptoms} setCustomSymptoms={setCustomSymptoms} doReset={doReset} getAllData={getAllData} loadAllData={loadAllData} theme={theme} setTheme={setTheme} fbUser={fbUser} syncMsg={syncMsg} setSyncMsg={setSyncMsg} onShowAuth={onShowAuth} />}
   </>);
 }
 
@@ -2620,7 +2620,7 @@ function AddMedModal({type,onClose,onSave}){
 }
 
 /* ═══ SETTINGS SUB ═══ */
-function SettingsSub({aiOn,setAiOn,meals,syms,pin,setPin,customSymptoms,setCustomSymptoms,doReset,getAllData,loadAllData,theme,setTheme,fbUser,syncMsg,setSyncMsg}){
+function SettingsSub({aiOn,setAiOn,meals,syms,pin,setPin,customSymptoms,setCustomSymptoms,doReset,getAllData,loadAllData,theme,setTheme,fbUser,syncMsg,setSyncMsg,onShowAuth}){
   const [np,setNp]=useState("");const [msg,setMsg]=useState("");
   const [resetMode,setResetMode]=useState(null);
   const [resetConfirm,setResetConfirm]=useState("");
@@ -2707,7 +2707,7 @@ function SettingsSub({aiOn,setAiOn,meals,syms,pin,setPin,customSymptoms,setCusto
       :<div className="sr" style={{flexDirection:'column',alignItems:'stretch',gap:4}}>
         <div style={{fontSize:12.5,color:'var(--t1)'}}>Sign in to sync data between devices</div>
         <div style={{fontSize:10.5,color:'var(--t3)'}}>Your data stays on this device. Signing in adds optional cloud backup.</div>
-        <button className="mb" onClick={async()=>{try{await signInWithGoogle()}catch(e){setSyncMsg("❌ Sign-in failed: "+e.message);setTimeout(()=>setSyncMsg(""),4000)}}} style={{color:'var(--pb)',marginTop:4,textAlign:'center',width:'100%'}}>Sign in with Google</button>
+        <button className="mb" onClick={onShowAuth} style={{color:'var(--pb)',marginTop:4,textAlign:'center',width:'100%'}}>Sign In / Sign Up</button>
         {syncMsg&&<div style={{fontSize:11,color:syncMsg.includes("✅")?'var(--ok)':'var(--er)',marginTop:4,textAlign:'center'}}>{syncMsg}</div>}
       </div>}
     </>}
@@ -3491,12 +3491,6 @@ function AuthModal({user,onClose}){
   const [err,setErr]=useState("");
   const [loading,setLoading]=useState(false);
 
-  const handleGoogle=async()=>{
-    setLoading(true);setErr("");
-    try{await signInWithGoogle();onClose()}
-    catch(e){setErr(e.message)}
-    setLoading(false);
-  };
   const handleEmail=async()=>{
     if(!email||!pass){setErr("Enter email and password");return}
     if(pass.length<6){setErr("Password must be at least 6 characters");return}
@@ -3533,14 +3527,6 @@ function AuthModal({user,onClose}){
     <div className="moh"><div className="mot">{mode==='signup'?'Create Account':'Sign In'}</div><button className="mox" onClick={onClose}>✕</button></div>
     <div className="mob">
       <div style={{fontSize:12,color:'var(--t2)',marginBottom:16,lineHeight:1.5}}>Sign in to sync your GutCheck data between devices. Your data stays on this device — an account just adds cloud backup.</div>
-      <button className="mb" onClick={handleGoogle} disabled={loading} style={{width:'100%',textAlign:'center',padding:'12px',marginBottom:12,color:'var(--t1)',fontSize:13,fontWeight:600}}>
-        {loading?'Signing in...':'Sign in with Google'}
-      </button>
-      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-        <div style={{flex:1,height:1,background:'var(--card-border)'}}/>
-        <span style={{fontSize:10,color:'var(--t3)'}}>or</span>
-        <div style={{flex:1,height:1,background:'var(--card-border)'}}/>
-      </div>
       <div className="fs"><label className="fl">Email</label><input className="fi" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com"/></div>
       <div className="fs"><label className="fl">Password</label><input className="fi" type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder={mode==='signup'?'Min 6 characters':'Password'} onKeyDown={e=>e.key==="Enter"&&handleEmail()}/></div>
       {err&&<div style={{fontSize:11,color:'var(--er)',marginBottom:10,padding:'6px 8px',background:'var(--er-t1)',borderRadius:6,border:'1px solid var(--er-t2)'}}>{err}</div>}
