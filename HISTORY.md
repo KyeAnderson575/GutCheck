@@ -4,6 +4,77 @@ This file is append-only. Newest session at the top. Older session blocks are re
 
 ---
 
+## Session 3 results (2026-05-07)
+
+**Session scope:** Firebase Slice 1 — stand up a real Firebase project, wire its config in via Vite env vars, verify the existing auth UI works end-to-end against it. Email + password only. No Firestore per-record sync this session (deferred to Slice 2 / session 4).
+
+### What was done
+
+- **Firebase project created** (`gutcheck-beta`) under Kye's personal Google account. No Workspace org parent (initial attempt under `kye@co-innovate.com` was blocked by parent-resource requirement; switched to personal account). Analytics + Gemini + Developer Program all left disabled. Free Spark plan. Email/Password sign-in enabled, all other providers (Google, Apple, etc.) deliberately disabled. Authorized domains: `localhost` (default) + `kyeanderson575.github.io` (added). Firestore database created in `us-west3 (Salt Lake City)` — closest single-region to Denver — in production-mode rules (deny all, will be opened up per-user in Slice 2).
+- **Six GitHub Actions secrets added** to `KyeAnderson575/GutCheck` repo: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`. Secrets, not vars — values not visible in build logs.
+- **`src/firebase.js` rewritten** — config now reads from `import.meta.env.VITE_FIREBASE_*`. `isConfigured` check changed from "not a placeholder" to "apiKey + projectId both truthy". Removed `signInWithPopup`/`GoogleAuthProvider` imports + the `signInWithGoogle` export. Trimmed verbose JSDoc (the setup steps no longer apply). Existing single-doc `syncUpload`/`syncDownload` left in place — they'll fail until Slice 2 lands proper rules, that's expected.
+- **`src/App.jsx` cleanup** — dropped `signInWithGoogle` from the firebase import. Settings → Cloud Sync's "Sign in with Google" button replaced with a "Sign In / Sign Up" button that triggers the existing `AuthModal`. `AuthModal` itself stripped of the Google sign-in button + "or" divider; email form is now the only path. Threaded a new `onShowAuth` callback through App → MoreTab → SettingsSub so the Settings button can open the modal.
+- **`.env.example` (new, committed)** — template with the 6 keys and dummy values, so future-Kye on a new machine knows what to fill into `.env.local`. Real `.env.local` written locally during the session, gitignored (already covered by `.env.*.local` from session 2).
+- **`.github/workflows/deploy.yml`** — added an `env:` block under the Build step that maps the 6 GitHub secrets to `VITE_FIREBASE_*` env vars. Vite inlines them at build time, same way `.env.local` works for dev.
+- **`.gitignore`** — added `.claude/` to keep Claude Code session metadata out of commits. Was showing up untracked at worktree root during the session.
+- **Single commit pushed** (`66ba587` → `origin/main`). Pushed directly from the worktree branch (`claude/trusting-sammet-b935db`) into `origin/main` via `git push origin HEAD:main`. Deploy workflow ran green first try; live URL serving the new bundle within ~2 min.
+
+### Verification — both local dev and live URL — all PASS
+
+Walked all 9 verification steps from the plan, twice (once on `localhost:5174`, once on `https://kyeanderson575.github.io/GutCheck/` in Safari):
+
+1. 👤 button appears in the header (proves `isFirebaseReady()` returns true with env vars wired).
+2. Click 👤 → `AuthModal` opens with email + password only. No Google button, no "or" divider.
+3. Sign Up with throwaway email + 6+ char password → modal closes, header turns ✓.
+4. Reload → still signed in (Firebase persists session in browser IndexedDB).
+5. Settings → Cloud Sync section shows user info card + Sign Out button.
+6. Sign Out → header reverts to 👤; Cloud Sync flips to "Sign in to sync data" with the new Sign In / Sign Up button.
+7. Sign In via the Cloud Sync button → modal opens, sign in works.
+8. Wrong password / already-used email → friendly error messages.
+9. Hard-close PWA on iPhone, reopen via Safari to live URL → PWA picked up new service-worker bundle, all 1–8 work identically.
+
+### Bugs found and fixed in-session
+
+1. **`setShowAuth is not defined` ReferenceError when clicking the new Settings sign-in button.** Initial wiring put `onShowAuth={()=>setShowAuth(true)}` on the SettingsSub call site, but that call site is inside `MoreTab`, not the App component — `setShowAuth` wasn't in scope there. **Fix:** threaded the callback through one more layer — App passes `onShowAuth={()=>setShowAuth(true)}` to MoreTab, which forwards `onShowAuth={onShowAuth}` to SettingsSub. Three small edits.
+2. **PowerShell execution policy blocked `npm run dev` on Kye's machine** — `running scripts is disabled on this system`. Worked around with `npm.cmd run dev`. Permanent fix (not done this session): `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` in PowerShell once.
+3. **Wrong working directory for dev server.** First `npm run dev` was run from `C:\Claude Projects\GutCheck` (main worktree, on `main` branch) instead of the session worktree at `C:\Claude Projects\GutCheck\.claude\worktrees\trusting-sammet-b935db`. Live edits weren't reflected. Worth flagging as a worktree gotcha for future sessions.
+
+### Bugs noted but not yet fixed
+
+- **Existing `syncUpload`/`syncDownload` in `firebase.js` will fail on the live URL** when triggered, because Firestore rules are still production-default deny-all. Not a regression — sync was already untested. Slice 2 will land proper `/users/{uid}/...` rules.
+- **No "Skip — offline only" affordance** on first launch yet. Per BACKLOG §4 spec, but not blocking — current UX is already "skip by default, opt-in via 👤 button," which is functionally equivalent for now. Will revisit when Slice 2 makes signing in actually do something meaningful.
+- **Stray Vite dev server on port 5173** (project fell back to 5174 during testing). Probably a leftover process from earlier session. Harmless, didn't investigate.
+
+### Documentation updates
+
+- New file: `.env.example` (committed) — config template.
+- `.gitignore` — added `.claude/`.
+- This `HISTORY.md` block + `START_PROMPT.md` "Current state" rewrite (final commit of the session).
+
+### State as of end of session 3
+
+- Live URL working with real auth: `https://kyeanderson575.github.io/GutCheck/`. 👤 button → email/password sign-in/sign-up works. Sessions persist.
+- One commit on `main` advancing from session 2: `66ba587` "Wire Firebase auth (Slice 1)". Final docs commit lands as the last action of this session.
+- Working tree clean (after the wrap-up commit lands).
+- Firebase project (`gutcheck-beta`) live, free Spark tier, Email/Password provider only, Firestore in `us-west3` with production-default rules.
+- Auth state is real — testers can sign up with their own email/password right now and persist a session, but their *data* still only lives in their device's IndexedDB.
+
+### Queued for session 4 (Slice 2)
+
+- Firestore security rules: `match /users/{userId}/{document=**} { allow read, write: if request.auth != null && request.auth.uid == userId; }`. Deploy via Firebase console or CLI.
+- Refactor sync layer: replace single-doc `users/{uid}` blob with per-collection paths (`/users/{uid}/meals/{mealId}`, `/users/{uid}/syms/{symId}`, etc. per BACKLOG §4 schema).
+- Migration: detect existing local IndexedDB data on first sign-in, prompt user to upload, then switch to Firestore-backed sync going forward.
+- Sync status indicator in header (synced / syncing / offline / error).
+- Conflict resolution: last-write-wins per record, leaning on existing `ts` timestamps on meals/syms.
+
+### Open items / nice-to-have (non-blocking)
+
+- "Skip — offline only" first-launch affordance once Slice 2 makes sign-in load-bearing.
+- Onboarding flow (BACKLOG §2) — separate from auth, useful before broad tester invitations.
+- PowerShell execution policy fix on Kye's home machine — one-time `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (not done this session).
+
+---
+
 ## Session 2 results (2026-05-05)
 
 **Session scope:** Adopt the 3-file docs convention (START_PROMPT/CLAUDE/SESSIONS), `git init` with cross-machine line-ending normalization, GitHub repo migration (rename old to archive + create fresh), `npm audit` cleanup, GitHub Pages deploy workflow, live-URL smoke test on iPhone.

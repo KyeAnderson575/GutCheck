@@ -43,64 +43,67 @@ Don't start executing until I approve the plan.
 
 ---
 
-## § Current state (as of 2026-05-05, end of session 2)
+## § Current state (as of 2026-05-07, end of session 3)
 
 ### Deployment
 
-- **Live URL: `https://kyeanderson575.github.io/GutCheck/`** — confirmed working on iPhone Safari and as a home-screen PWA.
-- Deploy pipeline: `.github/workflows/deploy.yml` runs on every push to `main` (Node 20, `npm ci`, `vite build`, `actions/deploy-pages@v4`). Pages source is set to "GitHub Actions" in repo settings.
-- First green deploy: workflow run from commit `7592fd0` (session 2). Build time ~1–2 min end to end.
+- **Live URL: `https://kyeanderson575.github.io/GutCheck/`** — confirmed working on iPhone Safari with real Firebase auth.
+- Deploy pipeline unchanged from session 2 (Node 20, `npm ci`, `vite build`, `actions/deploy-pages@v4`). The `Build` step now also injects 6 `VITE_FIREBASE_*` env vars from GitHub Actions secrets so Vite can inline the Firebase config at build time.
 
 ### Git state
 
 - Repo: `https://github.com/KyeAnderson575/GutCheck` (public). Branch: `main`. Remote: `origin`.
-- Two commits in history at end of session 2:
-  1. `78b427d` — Initial commit: GutCheck beta build (32 files, 16,469 insertions).
-  2. `7592fd0` — Add GitHub Pages deploy workflow.
-- Old repo preserved as `KyeAnderson575/Archive_GutCheck` (private). Do not push to it; do not delete it. It holds the legacy v11 history.
-- Local identity is the GitHub no-reply email (`270755902+KyeAnderson575@users.noreply.github.com`), not `kye@co-innovate.com`. This was set after GitHub's privacy guard rejected a push exposing the work email — see SESSIONS.md gotcha 9. Future commits stay anonymized.
+- Three commits on `main` at end of session 3:
+  1. `78b427d` — Initial commit: GutCheck beta build (session 1+2 build state).
+  2. `7592fd0` — Add GitHub Pages deploy workflow (session 2).
+  3. `66ba587` — Wire Firebase auth (Slice 1): env-var config, email-only sign-in (session 3).
+  4. (Session 3 wrap-up docs commit lands as the final action of this session.)
+- Session 3 was authored on a worktree branch (`claude/trusting-sammet-b935db`) and pushed directly into `origin/main` via `git push origin HEAD:main`.
+- Local identity is still the GitHub no-reply email — see SESSIONS.md gotcha 9.
+- Old repo preserved as `KyeAnderson575/Archive_GutCheck` (private). Do not push to it; do not delete it.
 
 ### Working-tree state
 
-- Clean at end of session. All session 2 work is committed and pushed.
-- All session 1 fixes verified live in the deployed bundle:
-  - FAB hides during overlays (Health tab edit sheet → no orange `+` visible) ✓
-  - `.ql-sheet` bottom padding: Save Changes / Remove buttons fully tappable above the bottom nav ✓
-  - `index.html` carries both legacy + modern `mobile-web-app-capable` meta tags ✓
+- Clean at end of session (after wrap-up commit lands). All session 3 work committed and pushed.
+- All session 3 verification PASS, both `localhost:5174` and live URL on Safari:
+  - 👤 button visible (env vars loaded) → Sign Up → reload persists → Sign Out → Sign In / Sign Up button in Settings opens AuthModal → Sign In → wrong-password + email-already-used both show friendly errors.
+  - PWA hard-close + reopen on iPhone picks up the new service-worker bundle correctly.
+
+### Firebase (NEW this session)
+
+- Real project: `gutcheck-beta`, free Spark plan, Kye's personal Google account (no Workspace org parent).
+- **Authentication providers:** Email/Password ONLY. Google, Apple, Phone, etc. all disabled.
+- **Authorized domains:** `localhost` + `kyeanderson575.github.io`.
+- **Firestore:** database created in `us-west3 (Salt Lake City)`. Production-default rules (deny all). NOT YET WIRED FOR PER-RECORD SYNC — the existing `syncUpload`/`syncDownload` in `firebase.js` (single-doc blob) will fail until Slice 2 lands proper rules. That's expected.
+- **Config plumbing:** `firebase.js` reads `import.meta.env.VITE_FIREBASE_*`. `.env.local` (gitignored) holds dev values; `.env.example` (committed) is the template; `.github/workflows/deploy.yml` injects the same vars from GitHub Actions Repository Secrets at build.
+- **Six secrets added** to repo Settings → Actions → Secrets: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`. Names must match exactly — Vite is case-sensitive on `VITE_*`.
 
 ### Build
 
-- `npm audit`: **0 vulnerabilities** as of end of session 2. Resolved in session 2 via `npm audit fix` (no `--force`): patch/minor bumps to vite, postcss, protobufjs, serialize-javascript transitives. Workbox internals upgraded 7.4.0 → 7.4.1, plugin-terser 0.4.4 → 1.0.0 (workbox-internal major bump, no impact on our code).
-- Build: `npm run build` succeeds. Single 1.4 MB JS chunk warning is pre-existing — code-splitting is post-beta.
-- `vite.config.js` `base: '/GutCheck/'` ✓.
-- PWA: service worker generates at `dist/sw.js`. Verified on live URL — manifest path resolves correctly under `/GutCheck/` scope, install-to-home-screen works on iOS.
+- `npm audit`: 0 vulnerabilities (carryover from session 2; not re-checked this session, no new deps added — `firebase` was already at `^12.11.0`).
+- `npm run build` succeeds. 1.4 MB single-chunk warning still present, still pre-existing, still post-beta concern.
 
-### Firebase
+### Auth UX in current build
 
-- Untouched. Stubbed out behind `isFirebaseReady()` guard. No real config, no service-account JSON anywhere in the tree.
-- All Firebase work deferred to **session 3**. See `BACKLOG.md` §4 and `CLAUDE.md` §"Multi-user note".
+- Header 👤 / ✓ button (top-right) opens `AuthModal`. Email + password form only.
+- Sign Up requires ≥6-char password (Firebase enforces). Friendly error messages for wrong-password, user-not-found, email-already-in-use, invalid-email.
+- Settings → Cloud Sync section: when signed-out, shows "Sign In / Sign Up" button that opens the same AuthModal. When signed-in, shows user card + sign-out + (currently broken) Upload/Download buttons.
+- Sessions persist via Firebase's IndexedDB-backed token storage.
+- The "Skip — offline only" affordance specced in BACKLOG §4 is NOT implemented yet — current UX is "skip by default, opt-in via 👤," which is functionally equivalent for now.
 
-### Smoke test results (live URL on iPhone)
+### Queued for session 4 (Firebase Slice 2)
 
-All 12 items from session 2's iPhone smoke test passed cleanly:
-- Cold load, all 5 bottom-nav tabs render, Insights empty state.
-- Bottom-sheet clearance + FAB hide-during-overlay verified live.
-- Symptom + meal save round-trip, IndexedDB persistence across reload.
-- Light/dark theme toggle.
-- PWA install + standalone launch.
-- Long-press timing (~500ms) feels right on iOS.
-
-### Queued for session 3
-
-- Firebase project setup (real config, env-var-based).
-- Auth UI (sign in / sign up / sign out).
-- Firestore sync layer with `/users/{uid}/...` schema.
-- Migration of existing local IndexedDB data into the per-user cloud schema.
-- Conflict resolution for offline-first → cloud-sync edge cases.
-- Onboarding flow for non-Kye testers (specced in `BACKLOG.md` §2).
+- Firestore security rules: `match /users/{userId}/{document=**} { allow read, write: if request.auth != null && request.auth.uid == userId; }`. Deploy via console or `firebase deploy --only firestore:rules`.
+- Replace the legacy single-doc `syncUpload`/`syncDownload` in `firebase.js` with per-collection writes (`/users/{uid}/meals/{mealId}`, `/users/{uid}/syms/{symId}`, etc. per BACKLOG §4 schema).
+- Migration of existing local IndexedDB data into the per-user cloud schema on first sign-in.
+- Conflict resolution strategy (last-write-wins on record `ts`).
+- Sync status indicator in header (synced / syncing / offline / error).
+- Reconsider "Skip — offline only" first-launch UX once sign-in is load-bearing.
 
 ### Open items / nice-to-have (non-blocking)
 
-- 1.4 MB single-chunk JS bundle: should be code-split eventually for faster initial load, but not blocking beta.
-- Bundle size warning is the only noise from `npm run build`; everything else is clean.
-- No feedback-collection mechanism on the live URL yet — beta testers reporting issues is currently word-of-mouth. Could add a simple "Report" link in More tab pointing to email or a GitHub Issue template — flag for session 3 or later.
+- **1.4 MB single-chunk JS bundle** — code-split eventually, post-beta.
+- **No feedback-collection mechanism** on live URL — flag for later.
+- **PowerShell execution policy** on Kye's home machine still blocks `npm run dev`. One-time fix: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` in PowerShell. Worked around this session with `npm.cmd run dev`.
+- **Stray Vite process on port 5173** (probably from a different working tree) — Vite fell back to 5174 during testing. Harmless, not investigated.
+- **Worktree gotcha worth documenting in SESSIONS.md eventually:** `npm run dev` must be run from the active worktree path, not the main repo path, or you'll be testing the old code. Ran into this once this session.
