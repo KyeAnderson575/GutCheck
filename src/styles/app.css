@@ -985,6 +985,22 @@ body:has(.ql-sheet) .fab { display: none; }
   background: rgba(52,211,153,0.1);
 }
 
+/* ═══ SYNC STATUS DOT (header, next to acct-btn) ═══ */
+.sync-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.sync-dot.sync-idle    { background: var(--ok); opacity: 0.55; }
+.sync-dot.sync-syncing { background: var(--wn); animation: sync-pulse 1s ease-in-out infinite; }
+.sync-dot.sync-error   { background: var(--er); }
+.sync-dot.sync-offline { background: var(--t3); opacity: 0.6; }
+@keyframes sync-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.85); }
+}
+
 /* ═══ THEME TOGGLE (Settings) ═══ */
 .theme-toggle {
   display: flex;

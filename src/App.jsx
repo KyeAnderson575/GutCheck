@@ -26,6 +26,7 @@ import BarcodeScanner from './components/BarcodeScanner';
 import {
   isFirebaseReady, onAuthChange,
   signInEmail, signUpEmail, logOut, syncUpload, syncDownload,
+  syncBlobUp, syncAllUp, syncAllDown, stripBlob,
 } from './firebase';
 import './styles/app.css';
 
@@ -288,6 +289,15 @@ export default function App() {
   const [fbUser,setFbUser]=useState(null);
   const [syncMsg,setSyncMsg]=useState("");
   const [showAuth,setShowAuth]=useState(false);
+  // ═══ AUTO-SYNC STATE (Slice 2) ═══
+  // syncStatus: 'idle' | 'syncing' | 'error' | 'offline'
+  const [syncStatus,setSyncStatus]=useState('idle');
+  const [migrating,setMigrating]=useState(false);
+  const fbUserRef=useRef(null);
+  const loadedRef=useRef(false);
+  const migratingRef=useRef(false);
+  const syncTimersRef=useRef({});
+  const lastSyncedRef=useRef({}); // { config: hash, meals: hash, ... }
 
   const [undoItem,setUndoItem]=useState(null);
   const undoTimerRef=useRef(null);
@@ -304,6 +314,147 @@ export default function App() {
     const unsub=onAuthChange(user=>setFbUser(user||null));
     return ()=>unsub();
   },[]);
+
+  // Keep refs in sync with state for use inside async/closure callbacks
+  useEffect(()=>{fbUserRef.current=fbUser},[fbUser]);
+  useEffect(()=>{loadedRef.current=loaded},[loaded]);
+  useEffect(()=>{migratingRef.current=migrating},[migrating]);
+
+  // ═══ ONLINE/OFFLINE INDICATOR ═══
+  useEffect(()=>{
+    const onOnline=()=>setSyncStatus(s=>s==='offline'?'idle':s);
+    const onOffline=()=>setSyncStatus('offline');
+    window.addEventListener('online',onOnline);
+    window.addEventListener('offline',onOffline);
+    if(!navigator.onLine) setSyncStatus('offline');
+    return ()=>{window.removeEventListener('online',onOnline);window.removeEventListener('offline',onOffline)};
+  },[]);
+
+  // ═══ AUTO-SYNC HELPER ═══
+  // Debounced per-blob upload. Skips if not signed in, not loaded, or migrating.
+  // Dedupe via a hash of the photo-stripped blob — avoids re-uploading the
+  // same data if state churns (e.g. cloud-down → setMeals → effect → upload).
+  const scheduleSync=(key,value)=>{
+    if(!isFirebaseReady()) return;
+    if(!fbUserRef.current) return;
+    if(!loadedRef.current) return;
+    if(migratingRef.current) return;
+    let hash;
+    try{hash=JSON.stringify(stripBlob(key,value))}catch{hash=null}
+    if(hash!=null && lastSyncedRef.current[key]===hash) return;
+    clearTimeout(syncTimersRef.current[key]);
+    syncTimersRef.current[key]=setTimeout(async()=>{
+      if(!navigator.onLine){setSyncStatus('offline');return}
+      setSyncStatus('syncing');
+      const ok=await syncBlobUp(key,value);
+      if(ok && hash!=null) lastSyncedRef.current[key]=hash;
+      setSyncStatus(ok?'idle':'error');
+      if(!ok) setTimeout(()=>setSyncStatus(s=>s==='error'?'idle':s),3000);
+    },2000);
+  };
+
+  // ═══ ONE-TIME MIGRATION on sign-in ═══
+  // When fbUser flips from null → user (sign-in) and we're loaded:
+  //   - If cloud has data: download + apply (cloud wins). Local photos are
+  //     preserved by id-merge since cloud meals/syms are photoless.
+  //   - If cloud is empty: upload current local blobs (first-ever sign-in).
+  useEffect(()=>{
+    if(!isFirebaseReady()) return;
+    if(!fbUser) return;
+    if(!loaded) return;
+    let cancelled=false;
+    (async()=>{
+      setMigrating(true);
+      migratingRef.current=true;
+      setSyncStatus('syncing');
+      try{
+        const cloud=await syncAllDown();
+        if(cancelled) return;
+        if(!cloud){
+          // First-ever sign-in on this account — push local up
+          const localBlobs={
+            config:{pin,aiOn,phase,elimFoods,elimStart,reintroFood,reintroStart,customSymptoms,hydrationGoal,pinnedQuickSyms,schemaVersion:SCHEMA_VERSION,restaurantDbVersion:RESTAURANT_DB_VERSION},
+            meals,syms,
+            medical:{procs,meds,dxs,labs},
+            library:{myFoods,dn,water,medLog,restaurants,customFoods,weightLog},
+          };
+          const ok=await syncAllUp(localBlobs);
+          if(cancelled) return;
+          if(ok){
+            // Seed lastSyncedRef so the post-render PS.set effects don't re-upload
+            try{Object.entries(localBlobs).forEach(([k,v])=>{lastSyncedRef.current[k]=JSON.stringify(stripBlob(k,v))})}catch{}
+            setSyncMsg("✅ Synced your data to your account");
+          }else{
+            setSyncMsg("⚠️ Sync upload failed — try the manual button in Settings");
+          }
+        }else{
+          // Cloud has data — apply it per-blob. If a specific blob's doc is
+          // missing in cloud (cloud[key] is null), keep local for that blob.
+          // Photos from local are merged onto cloud meals/syms by id.
+          let mergedMeals=meals;
+          if(Array.isArray(cloud.meals)){
+            const localMealById=new Map(meals.map(m=>[m.id,m]));
+            mergedMeals=cloud.meals.map(cm=>{const lm=localMealById.get(cm.id);return lm?.photo?{...cm,photo:lm.photo}:cm});
+            setMeals(mergedMeals);
+          }
+          let mergedSyms=syms;
+          if(Array.isArray(cloud.syms)){
+            const localSymById=new Map(syms.map(s=>[s.id,s]));
+            mergedSyms=cloud.syms.map(cs=>{const ls=localSymById.get(cs.id);return ls?.photo?{...cs,photo:ls.photo}:cs});
+            setSyms(mergedSyms);
+          }
+          const cfg=cloud.config||{};
+          if(cfg.pin!=null)setPin(cfg.pin);
+          if(cfg.aiOn!=null)setAiOn(cfg.aiOn);
+          if(cfg.phase)setPhase(cfg.phase);
+          if(cfg.elimFoods)setElimFoods(cfg.elimFoods);
+          if(cfg.elimStart!=null)setElimStart(cfg.elimStart);
+          if(cfg.reintroFood!=null)setReintroFood(cfg.reintroFood);
+          if(cfg.reintroStart!=null)setReintroStart(cfg.reintroStart);
+          if(cfg.customSymptoms)setCustomSymptoms(cfg.customSymptoms);
+          if(cfg.hydrationGoal)setHydrationGoal(cfg.hydrationGoal);
+          if(cfg.pinnedQuickSyms!==undefined)setPinnedQuickSyms(cfg.pinnedQuickSyms);
+          const med=cloud.medical||{};
+          if(med.procs)setProcs(med.procs);
+          if(med.meds)setMeds(med.meds);
+          if(med.dxs)setDxs(med.dxs);
+          if(med.labs)setLabs(med.labs);
+          const lib=cloud.library||{};
+          if(lib.myFoods)setMyFoods(lib.myFoods);
+          if(lib.dn)setDn(lib.dn);
+          if(lib.water)setWater(lib.water);
+          if(lib.medLog)setMedLog(lib.medLog);
+          if(lib.restaurants)setRestaurants(lib.restaurants);
+          if(lib.customFoods)setCustomFoods(lib.customFoods);
+          if(lib.weightLog)setWeightLog(lib.weightLog);
+          // Seed lastSyncedRef with the cloud blobs so the resulting PS.set effects don't trigger a re-upload
+          try{
+            lastSyncedRef.current.config=JSON.stringify(cfg);
+            lastSyncedRef.current.meals=JSON.stringify(stripBlob('meals',mergedMeals));
+            lastSyncedRef.current.syms=JSON.stringify(stripBlob('syms',mergedSyms));
+            lastSyncedRef.current.medical=JSON.stringify(med);
+            lastSyncedRef.current.library=JSON.stringify(lib);
+          }catch{}
+          setSyncMsg("✅ Synced from your account");
+        }
+      }catch(e){
+        if(!cancelled) setSyncMsg("⚠️ Sync error: "+(e.message||'unknown'));
+      }finally{
+        if(!cancelled){
+          // Defer clearing migrating so the post-render PS.set effects bail
+          setTimeout(()=>{
+            if(cancelled)return;
+            setMigrating(false);
+            migratingRef.current=false;
+            setSyncStatus(navigator.onLine?'idle':'offline');
+            setTimeout(()=>setSyncMsg(""),4000);
+          },150);
+        }
+      }
+    })();
+    return ()=>{cancelled=true};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[fbUser,loaded]);
 
   useEffect(()=>{(async()=>{
     const cfg = await PS.get(SK.config);
@@ -393,11 +544,11 @@ export default function App() {
     setLoaded(true);
   })()},[]); // eslint-disable-line
 
-  useEffect(()=>{if(!loaded)return;PS.set(SK.meals, meals)},[loaded,meals]);
-  useEffect(()=>{if(!loaded)return;PS.set(SK.syms, syms)},[loaded,syms]);
-  useEffect(()=>{if(!loaded)return;PS.set(SK.config, {pin,aiOn,phase,elimFoods,elimStart,reintroFood,reintroStart,customSymptoms,hydrationGoal,pinnedQuickSyms,schemaVersion:SCHEMA_VERSION,restaurantDbVersion:RESTAURANT_DB_VERSION})},[loaded,pin,aiOn,phase,elimFoods,elimStart,reintroFood,reintroStart,customSymptoms,hydrationGoal,pinnedQuickSyms]);
-  useEffect(()=>{if(!loaded)return;PS.set(SK.medical, {procs,meds,dxs,labs})},[loaded,procs,meds,dxs,labs]);
-  useEffect(()=>{if(!loaded||!restaurants)return;PS.set(SK.library, {myFoods,dn,water,medLog,restaurants,customFoods,weightLog})},[loaded,myFoods,dn,water,medLog,restaurants,customFoods,weightLog]);
+  useEffect(()=>{if(!loaded)return;PS.set(SK.meals, meals);scheduleSync('meals',meals)},[loaded,meals]);
+  useEffect(()=>{if(!loaded)return;PS.set(SK.syms, syms);scheduleSync('syms',syms)},[loaded,syms]);
+  useEffect(()=>{if(!loaded)return;const cfg={pin,aiOn,phase,elimFoods,elimStart,reintroFood,reintroStart,customSymptoms,hydrationGoal,pinnedQuickSyms,schemaVersion:SCHEMA_VERSION,restaurantDbVersion:RESTAURANT_DB_VERSION};PS.set(SK.config, cfg);scheduleSync('config',cfg)},[loaded,pin,aiOn,phase,elimFoods,elimStart,reintroFood,reintroStart,customSymptoms,hydrationGoal,pinnedQuickSyms]);
+  useEffect(()=>{if(!loaded)return;const med={procs,meds,dxs,labs};PS.set(SK.medical, med);scheduleSync('medical',med)},[loaded,procs,meds,dxs,labs]);
+  useEffect(()=>{if(!loaded||!restaurants)return;const lib={myFoods,dn,water,medLog,restaurants,customFoods,weightLog};PS.set(SK.library, lib);scheduleSync('library',lib)},[loaded,myFoods,dn,water,medLog,restaurants,customFoods,weightLog]);
 
   const doReset = async (mode) => {
     const backup = {meals,syms,dn,water,medLog,pin,aiOn,phase,elimFoods,elimStart,reintroFood,reintroStart,procs,meds,dxs,labs,myFoods,customSymptoms,weightLog,_backupDate:new Date().toISOString()};
@@ -491,6 +642,7 @@ export default function App() {
     <div className="hdr"><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div className="logo">GutCheck</div>
       <div style={{display:'flex',gap:6,alignItems:'center'}}>
         {phase!=="baseline"&&<span className="bd" style={{background:'var(--ok-t2)',color:'var(--ok)',fontSize:9}}>{phase==="elimination"?"🚫 Eliminating":"🔄 Reintro"}</span>}
+        {isFirebaseReady()&&fbUser&&<span className={`sync-dot sync-${syncStatus}`} title={syncStatus==='syncing'?'Syncing…':syncStatus==='error'?'Sync error':syncStatus==='offline'?'Offline — changes will sync when online':'Synced'} />}
         {isFirebaseReady()&&<button className={`acct-btn${fbUser?' signed-in':''}`} onClick={()=>setShowAuth(true)} title={fbUser?fbUser.email:'Sign in'}>{fbUser?fbUser.displayName?fbUser.displayName[0].toUpperCase():'✓':'👤'}</button>}
       </div>
     </div></div>
